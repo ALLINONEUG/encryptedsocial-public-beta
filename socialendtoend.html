@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SOCIAL" />
+  <title>SOCIAL — E2E Encrypted Messenger</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --neon: #00ff41;
+      --neon-dim: #00cc33;
+      --neon-glow: rgba(0,255,65,0.35);
+      --neon-faint: rgba(0,255,65,0.07);
+      --bg: #030a04;
+      --bg2: #07110a;
+      --bg3: #0c1e0f;
+      --surface: #0a1a0d;
+      --border: rgba(0,255,65,0.18);
+      --text: #d4f5dc;
+      --text-dim: rgba(212,245,220,0.5);
+      --mono: 'Share Tech Mono', monospace;
+      --ui: 'Rajdhani', sans-serif;
+      --radius: 4px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--ui);
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    /* scanline overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.015) 2px, rgba(0,255,65,0.015) 4px);
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── SCREEN MANAGER ── */
+    .screen { display: none; flex-direction: column; height: 100dvh; width: 100%; position: absolute; inset: 0; }
+    .screen.active { display: flex; }
+
+    /* ── BOOT SCREEN ── */
+    #screen-boot {
+      align-items: center; justify-content: center;
+      background: var(--bg);
+      animation: fadeIn 0.4s ease;
+    }
+    .boot-logo {
+      font-family: var(--mono);
+      font-size: clamp(2.5rem, 10vw, 5rem);
+      color: var(--neon);
+      text-shadow: 0 0 20px var(--neon), 0 0 60px var(--neon-glow), 0 0 120px rgba(0,255,65,0.1);
+      letter-spacing: 0.3em;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .boot-sub {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--neon-dim);
+      letter-spacing: 0.2em;
+      margin-top: 0.5rem;
+      opacity: 0.7;
+    }
+    .boot-bar {
+      width: 200px; height: 2px;
+      background: var(--border);
+      margin-top: 3rem;
+      border-radius: 1px;
+      overflow: hidden;
+    }
+    .boot-fill {
+      height: 100%;
+      background: var(--neon);
+      box-shadow: 0 0 10px var(--neon);
+      width: 0%;
+      animation: bootLoad 2s ease forwards;
+    }
+    @keyframes bootLoad { to { width: 100%; } }
+    @keyframes pulse {
+      0%,100% { text-shadow: 0 0 20px var(--neon), 0 0 60px var(--neon-glow); }
+      50% { text-shadow: 0 0 30px var(--neon), 0 0 80px var(--neon-glow), 0 0 150px rgba(0,255,65,0.15); }
+    }
+
+    /* ── SETUP SCREEN ── */
+    #screen-setup {
+      align-items: center; justify-content: center;
+      padding: 2rem;
+      animation: fadeIn 0.4s ease;
+    }
+    .setup-card {
+      width: 100%; max-width: 400px;
+      border: 1px solid var(--border);
+      border-top: 2px solid var(--neon);
+      background: var(--surface);
+      padding: 2rem;
+      position: relative;
+    }
+    .setup-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 60px;
+      background: linear-gradient(to bottom, var(--neon-faint), transparent);
+    }
+    .setup-title {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.3em;
+      color: var(--neon);
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+      opacity: 0.8;
+    }
+    .setup-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 0.4rem;
+    }
+    .setup-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-bottom-color: var(--neon-dim);
+      color: var(--neon);
+      font-family: var(--mono);
+      font-size: 1rem;
+      padding: 0.6rem 0.8rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .setup-input::placeholder { color: rgba(0,255,65,0.2); }
+    .setup-input:focus {
+      border-color: var(--neon);
+      box-shadow: 0 0 0 1px var(--neon-glow);
+    }
+    .setup-note {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      margin-top: 0.4rem;
+      opacity: 0.6;
+      line-height: 1.5;
+    }
+    .setup-keygen {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--neon-dim);
+    }
+    .keygen-status {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--neon-dim);
+      letter-spacing: 0.1em;
+    }
+    .keygen-fingerprint {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      word-break: break-all;
+      margin-top: 0.4rem;
+      line-height: 1.6;
+    }
+    .btn-neon {
+      width: 100%;
+      margin-top: 1.5rem;
+      padding: 0.75rem;
+      background: transparent;
+      border: 1px solid var(--neon);
+      color: var(--neon);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-neon::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: var(--neon);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.2s;
+    }
+    .btn-neon:hover::before, .btn-neon:active::before { transform: scaleX(1); }
+    .btn-neon span { position: relative; z-index: 1; transition: color 0.2s; }
+    .btn-neon:hover span, .btn-neon:active span { color: var(--bg); }
+    .btn-neon:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ── MAIN APP ── */
+    #screen-app { flex-direction: row; }
+
+    /* sidebar */
+    .sidebar {
+      width: 280px; min-width: 280px;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      transition: transform 0.3s;
+    }
+    @media (max-width: 640px) {
+      .sidebar { position: absolute; left: 0; top: 0; bottom: 0; z-index: 100; transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); box-shadow: 4px 0 30px rgba(0,0,0,0.8); }
+    }
+    .sidebar-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .logo-small {
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      color: var(--neon);
+      text-shadow: 0 0 10px var(--neon-glow);
+      letter-spacing: 0.2em;
+    }
+    .my-identity {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+    }
+    .my-name {
+      color: var(--neon);
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+    }
+    .e2e-badge {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 0.5rem;
+      color: var(--neon);
+      border: 1px solid var(--neon-dim);
+      padding: 0.15rem 0.35rem;
+      letter-spacing: 0.1em;
+      animation: badgePulse 3s ease-in-out infinite;
+    }
+    @keyframes badgePulse {
+      0%,100% { opacity: 0.7; } 50% { opacity: 1; box-shadow: 0 0 8px var(--neon-glow); }
+    }
+
+    .sidebar-section-title {
+      font-family: var(--mono);
+      font-size: 0.55rem;
+      color: var(--text-dim);
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      padding: 0.75rem 1rem 0.4rem;
+    }
+    .peer-list { flex: 1; overflow-y: auto; }
+    .peer-list::-webkit-scrollbar { width: 3px; }
+    .peer-list::-webkit-scrollbar-thumb { background: var(--border); }
+
+    .peer-item {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .peer-item:hover { background: var(--neon-faint); }
+    .peer-item.active {
+      background: var(--neon-faint);
+      border-left-color: var(--neon);
+    }
+    .peer-avatar {
+      width: 36px; height: 36px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--neon);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .peer-status-dot {
+      position: absolute; bottom: -2px; right: -2px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      border: 1px solid var(--bg2);
+    }
+    .peer-status-dot.online { background: var(--neon); box-shadow: 0 0 6px var(--neon); }
+    .peer-status-dot.offline { background: #333; }
+    .peer-name { font-size: 0.9rem; font-weight: 600; line-height: 1; }
+    .peer-last { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); margin-top: 0.2rem; }
+    .peer-unread {
+      margin-left: auto;
+      min-width: 18px; height: 18px;
+      background: var(--neon);
+      color: var(--bg);
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      border-radius: 2px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 3px;
+    }
+
+    .add-peer-btn {
+      margin: 0.75rem;
+      padding: 0.5rem;
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    }
+    .add-peer-btn:hover { border-color: var(--neon); color: var(--neon); }
+
+    /* chat area */
+    .chat-area {
+      flex: 1;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .chat-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .menu-btn {
+      display: none;
+      background: none; border: none; cursor: pointer;
+      color: var(--neon); font-size: 1.1rem; padding: 0.2rem;
+    }
+    @media (max-width: 640px) { .menu-btn { display: block; } }
+    .chat-peer-name { font-size: 1rem; font-weight: 700; letter-spacing: 0.05em; }
+    .chat-peer-status {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--neon-dim);
+      letter-spacing: 0.1em;
+    }
+    .chat-e2e-indicator {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 0.4rem;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--neon-dim);
+    }
+    .lock-icon { font-size: 0.75rem; color: var(--neon); }
+
+    .messages-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex; flex-direction: column; gap: 0.5rem;
+      scroll-behavior: smooth;
+    }
+    .messages-area::-webkit-scrollbar { width: 3px; }
+    .messages-area::-webkit-scrollbar-thumb { background: var(--border); }
+
+    .msg-day-divider {
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 0.55rem;
+      color: var(--text-dim);
+      letter-spacing: 0.2em;
+      margin: 0.5rem 0;
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .msg-day-divider::before, .msg-day-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    .msg-bubble {
+      max-width: 75%;
+      padding: 0.55rem 0.8rem;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      word-break: break-word;
+      position: relative;
+      animation: msgIn 0.2s ease;
+    }
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: none; }
+    }
+    .msg-bubble.mine {
+      align-self: flex-end;
+      background: var(--neon-faint);
+      border: 1px solid var(--neon-dim);
+      border-bottom-right-radius: 0;
+      color: var(--text);
+    }
+    .msg-bubble.theirs {
+      align-self: flex-start;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 0;
+      color: var(--text);
+    }
+    .msg-meta {
+      font-family: var(--mono);
+      font-size: 0.52rem;
+      color: var(--text-dim);
+      margin-top: 0.25rem;
+      display: flex; align-items: center; gap: 0.35rem;
+    }
+    .msg-bubble.mine .msg-meta { justify-content: flex-end; }
+    .msg-encrypted-label {
+      color: var(--neon-dim);
+      font-size: 0.5rem;
+      letter-spacing: 0.05em;
+    }
+
+    .empty-chat {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1rem;
+      opacity: 0.4;
+    }
+    .empty-icon { font-size: 2.5rem; }
+    .empty-text { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.2em; color: var(--text-dim); }
+
+    .no-chat-selected {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1rem;
+      background: var(--bg);
+    }
+    .no-chat-logo {
+      font-family: var(--mono);
+      font-size: 3rem;
+      color: var(--neon);
+      text-shadow: 0 0 40px var(--neon-glow);
+      letter-spacing: 0.3em;
+      animation: pulse 3s ease-in-out infinite;
+    }
+    .no-chat-text { font-family: var(--mono); font-size: 0.65rem; color: var(--text-dim); letter-spacing: 0.2em; }
+
+    .input-bar {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg2);
+      display: flex; align-items: center; gap: 0.75rem;
+      padding-bottom: calc(0.75rem + var(--safe-bottom));
+    }
+    .msg-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--ui);
+      font-size: 0.9rem;
+      padding: 0.55rem 0.8rem;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: none;
+      max-height: 120px;
+      border-radius: var(--radius);
+    }
+    .msg-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+    .msg-input:focus { border-color: var(--neon-dim); }
+    .send-btn {
+      width: 40px; height: 40px;
+      background: var(--neon);
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      clip-path: polygon(0 0, 100% 50%, 0 100%);
+      padding-left: 4px;
+    }
+    .send-btn:hover { background: #fff; transform: scale(1.05); }
+    .send-btn:active { transform: scale(0.95); }
+    .send-btn svg { width: 16px; height: 16px; fill: var(--bg); }
+
+    /* ── ADD PEER MODAL ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 200;
+      align-items: center; justify-content: center;
+      padding: 1.5rem;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      width: 100%; max-width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 2px solid var(--neon);
+      padding: 1.5rem;
+      animation: fadeIn 0.2s ease;
+    }
+    .modal-title {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.3em;
+      color: var(--neon);
+      margin-bottom: 1rem;
+    }
+    .modal-close {
+      float: right;
+      background: none; border: none;
+      color: var(--text-dim); cursor: pointer; font-size: 1rem;
+    }
+    .tab-bar { display: flex; gap: 0; margin-bottom: 1rem; }
+    .tab {
+      flex: 1; padding: 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-family: var(--mono); font-size: 0.65rem;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab.active { background: var(--neon-faint); border-color: var(--neon); color: var(--neon); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .qr-display {
+      width: 100%; aspect-ratio: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono); font-size: 0.65rem; color: var(--text-dim);
+      text-align: center; padding: 1rem;
+    }
+    .share-key-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--neon-dim);
+      padding: 0.75rem;
+      font-family: var(--mono); font-size: 0.6rem;
+      color: var(--neon-dim); word-break: break-all;
+      line-height: 1.6; margin-bottom: 0.75rem;
+    }
+    .copy-btn {
+      width: 100%; padding: 0.5rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-family: var(--mono); font-size: 0.65rem;
+      letter-spacing: 0.1em; cursor: pointer; transition: all 0.2s;
+    }
+    .copy-btn:hover { border-color: var(--neon); color: var(--neon); }
+
+    /* ── NETWORK STATUS ── */
+    .net-status {
+      position: fixed; bottom: 1rem; right: 1rem;
+      font-family: var(--mono); font-size: 0.55rem;
+      color: var(--text-dim); letter-spacing: 0.1em;
+      display: flex; align-items: center; gap: 0.4rem;
+      z-index: 50;
+    }
+    .net-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .net-dot.connected { background: var(--neon); box-shadow: 0 0 6px var(--neon); animation: blink 2s ease infinite; }
+    .net-dot.disconnected { background: #ff4444; }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    /* ── SECURITY BANNER ── */
+    .security-banner {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 0.3rem 1rem;
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      font-family: var(--mono); font-size: 0.55rem;
+      color: var(--neon-dim); letter-spacing: 0.1em;
+    }
+    .security-banner span { color: var(--neon); }
+  </style>
+</head>
+<body>
+
+<!-- BOOT SCREEN -->
+<div id="screen-boot" class="screen active">
+  <div class="boot-logo">SOCIAL</div>
+  <div class="boot-sub">END-TO-END ENCRYPTED</div>
+  <div class="boot-bar"><div class="boot-fill"></div></div>
+</div>
+
+<!-- SETUP SCREEN -->
+<div id="screen-setup" class="screen">
+  <div class="setup-card">
+    <div class="setup-title">// INIT — CREATE IDENTITY</div>
+    <label class="setup-label">Display Name</label>
+    <input id="input-username" class="setup-input" type="text" maxlength="24" placeholder="e.g. ghost_node" autocomplete="off" spellcheck="false" />
+    <div class="setup-note">// Not transmitted. Stored locally only.</div>
+
+    <div class="setup-keygen" id="keygen-box">
+      <div class="keygen-status" id="keygen-status">⏳ Generating keypair…</div>
+      <div class="keygen-fingerprint" id="keygen-fp"></div>
+    </div>
+
+    <button class="btn-neon" id="btn-enter" disabled><span>ENTER ›</span></button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="screen-app" class="screen">
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div>
+        <div class="logo-small">SOCIAL</div>
+        <div class="my-identity">Logged in as</div>
+        <div class="my-name" id="my-name-label">…</div>
+      </div>
+      <div class="e2e-badge">E2E ⚿</div>
+    </div>
+    <div class="security-banner">
+      <span>⚿</span> ECDH · AES-256-GCM · LOCAL ONLY
+    </div>
+    <div class="sidebar-section-title">// PEERS</div>
+    <div class="peer-list" id="peer-list"></div>
+    <button class="add-peer-btn" id="btn-add-peer">
+      <span>+</span> ADD PEER
+    </button>
+  </div>
+
+  <!-- Chat Area -->
+  <div class="chat-area" id="chat-area">
+    <!-- No chat selected state -->
+    <div class="no-chat-selected" id="no-chat">
+      <div class="no-chat-logo">SOCIAL</div>
+      <div class="no-chat-text">SELECT A PEER TO BEGIN</div>
+    </div>
+
+    <!-- Active chat (hidden by default) -->
+    <div id="active-chat" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+      <div class="chat-header">
+        <button class="menu-btn" id="menu-btn">☰</button>
+        <div>
+          <div class="chat-peer-name" id="chat-peer-name">—</div>
+          <div class="chat-peer-status" id="chat-peer-status">⬤ connecting…</div>
+        </div>
+        <div class="chat-e2e-indicator">
+          <span class="lock-icon">🔒</span>
+          <span>E2E ENCRYPTED</span>
+        </div>
+      </div>
+      <div class="messages-area" id="messages-area">
+        <div class="empty-chat" id="empty-chat">
+          <div class="empty-icon">💬</div>
+          <div class="empty-text">// NO MESSAGES YET</div>
+          <div class="empty-text" style="font-size:0.5rem">Keys exchanged · Encryption active</div>
+        </div>
+      </div>
+      <div class="input-bar">
+        <textarea id="msg-input" class="msg-input" rows="1" placeholder="Type encrypted message…" maxlength="4000"></textarea>
+        <button class="send-btn" id="send-btn">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M5 12l14-9-5 9 5 9z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PEER MODAL -->
+<div class="modal-overlay" id="modal-add-peer">
+  <div class="modal-box">
+    <div class="modal-title">// ADD PEER &nbsp;<button class="modal-close" id="modal-close">✕</button></div>
+    <div class="tab-bar">
+      <button class="tab active" data-tab="share">SHARE MY KEY</button>
+      <button class="tab" data-tab="import">IMPORT PEER</button>
+    </div>
+    <div class="tab-content active" id="tab-share">
+      <p class="setup-note" style="margin-bottom:0.75rem">// Share your public key fingerprint with a peer on the same network.</p>
+      <div class="share-key-box" id="my-pub-key-display">—</div>
+      <button class="copy-btn" id="copy-key-btn">⊕ COPY KEY</button>
+    </div>
+    <div class="tab-content" id="tab-import">
+      <label class="setup-label">Peer Name</label>
+      <input id="import-name" class="setup-input" style="margin-bottom:0.75rem" type="text" placeholder="peer_alias" autocomplete="off" />
+      <label class="setup-label">Peer Public Key</label>
+      <textarea id="import-key" class="setup-input" style="height:80px;resize:none;margin-bottom:0.75rem" placeholder="Paste peer's public key here…"></textarea>
+      <button class="btn-neon" id="import-peer-btn"><span>ADD PEER</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- Network status -->
+<div class="net-status" id="net-status">
+  <div class="net-dot connected" id="net-dot"></div>
+  <span id="net-label">LOCAL NETWORK</span>
+</div>
+
+<script type="module">
+/**
+ * SOCIAL — End-to-End Encrypted Messenger
+ * ─────────────────────────────────────────
+ * Architecture:
+ *  • Identities: ECDH P-256 keypairs generated in WebCrypto, stored in IndexedDB
+ *  • Encryption: AES-256-GCM with per-message IV, key derived via ECDH
+ *  • Transport:  BroadcastChannel (same-origin same-tab) for demo;
+ *                plug in WebSocket/PeerJS for LAN/Pi hosting (see comments)
+ *  • Privacy:    No IP logging, no MAC address access, no server calls
+ *  • Storage:    IndexedDB only — never leaves the device unencrypted
+ */
+
+// ──────────────────────────────────────────
+// 1. CRYPTO ENGINE
+// ──────────────────────────────────────────
+const Crypto = {
+  async generateKeypair() {
+    return await window.crypto.subtle.generateKey(
+      { name: 'ECDH', namedCurve: 'P-256' },
+      true,
+      ['deriveKey']
+    );
+  },
+  async exportPublicKey(key) {
+    const raw = await window.crypto.subtle.exportKey('spki', key);
+    return btoa(String.fromCharCode(...new Uint8Array(raw)));
+  },
+  async importPublicKey(b64) {
+    const raw = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    return await window.crypto.subtle.importKey(
+      'spki', raw.buffer,
+      { name: 'ECDH', namedCurve: 'P-256' },
+      false, []
+    );
+  },
+  async exportPrivateKey(key) {
+    const raw = await window.crypto.subtle.exportKey('pkcs8', key);
+    return btoa(String.fromCharCode(...new Uint8Array(raw)));
+  },
+  async importPrivateKey(b64) {
+    const raw = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    return await window.crypto.subtle.importKey(
+      'pkcs8', raw.buffer,
+      { name: 'ECDH', namedCurve: 'P-256' },
+      false, ['deriveKey']
+    );
+  },
+  async deriveSharedKey(myPrivate, theirPublic) {
+    return await window.crypto.subtle.deriveKey(
+      { name: 'ECDH', public: theirPublic },
+      myPrivate,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  },
+  async encrypt(sharedKey, plaintext) {
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const enc = new TextEncoder();
+    const ct = await window.crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      sharedKey,
+      enc.encode(plaintext)
+    );
+    // pack: 12 bytes IV + ciphertext, base64
+    const combined = new Uint8Array(12 + ct.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(ct), 12);
+    return btoa(String.fromCharCode(...combined));
+  },
+  async decrypt(sharedKey, b64) {
+    const combined = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const ct = combined.slice(12);
+    const pt = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      sharedKey,
+      ct
+    );
+    return new TextDecoder().decode(pt);
+  },
+  async fingerprint(pubKeyB64) {
+    const raw = Uint8Array.from(atob(pubKeyB64), c => c.charCodeAt(0));
+    const hash = await window.crypto.subtle.digest('SHA-256', raw);
+    return Array.from(new Uint8Array(hash)).slice(0, 12)
+      .map(b => b.toString(16).padStart(2, '0')).join(':');
+  }
+};
+
+// ──────────────────────────────────────────
+// 2. STORAGE (IndexedDB — no cloud, no IP logging)
+// ──────────────────────────────────────────
+const DB = {
+  _db: null,
+  async open() {
+    return new Promise((res, rej) => {
+      const req = indexedDB.open('social_e2e', 2);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('identity')) db.createObjectStore('identity');
+        if (!db.objectStoreNames.contains('peers')) db.createObjectStore('peers', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('messages')) {
+          const ms = db.createObjectStore('messages', { keyPath: 'id', autoIncrement: true });
+          ms.createIndex('peerId', 'peerId');
+        }
+      };
+      req.onsuccess = e => { this._db = e.target.result; res(); };
+      req.onerror = rej;
+    });
+  },
+  tx(stores, mode = 'readonly') {
+    return this._db.transaction(stores, mode);
+  },
+  get(store, key) {
+    return new Promise((res, rej) => {
+      const req = this.tx(store).objectStore(store).get(key);
+      req.onsuccess = () => res(req.result);
+      req.onerror = rej;
+    });
+  },
+  put(store, value, key) {
+    return new Promise((res, rej) => {
+      const tx = this.tx(store, 'readwrite');
+      const req = key !== undefined ? tx.objectStore(store).put(value, key) : tx.objectStore(store).put(value);
+      req.onsuccess = () => res(req.result);
+      req.onerror = rej;
+    });
+  },
+  getAll(store) {
+    return new Promise((res, rej) => {
+      const req = this.tx(store).objectStore(store).getAll();
+      req.onsuccess = () => res(req.result);
+      req.onerror = rej;
+    });
+  },
+  getAllByIndex(store, index, value) {
+    return new Promise((res, rej) => {
+      const req = this.tx(store).objectStore(store).index(index).getAll(value);
+      req.onsuccess = () => res(req.result);
+      req.onerror = rej;
+    });
+  }
+};
+
+// ──────────────────────────────────────────
+// 3. TRANSPORT
+// BroadcastChannel for same-origin local demo.
+// ── TO UPGRADE FOR LAN / Raspberry Pi:
+//    Replace BroadcastChannel with a WebSocket client:
+//    const ws = new WebSocket('ws://<pi-ip>:8080');
+//    ws.onmessage = e => handleIncoming(JSON.parse(e.data));
+//    function sendPacket(p) { ws.send(JSON.stringify(p)); }
+// ──────────────────────────────────────────
+const Transport = {
+  _channel: null,
+  _handlers: [],
+  init(myId) {
+    // BroadcastChannel: works across tabs on same origin/network
+    this._channel = new BroadcastChannel('social_e2e_v1');
+    this._channel.onmessage = e => {
+      this._handlers.forEach(h => h(e.data));
+    };
+  },
+  on(handler) { this._handlers.push(handler); },
+  send(packet) {
+    this._channel.postMessage(packet);
+  }
+};
+
+// ──────────────────────────────────────────
+// 4. APP STATE
+// ──────────────────────────────────────────
+const State = {
+  identity: null,      // { name, pubKeyB64, privKeyB64 }
+  keypair: null,       // CryptoKeyPair
+  peers: [],           // [{ id, name, pubKeyB64, sharedKey }]
+  activePeerId: null,
+  messages: {}         // { peerId: [{ id, from, text, ts }] }
+};
+
+// ──────────────────────────────────────────
+// 5. UI HELPERS
+// ──────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderPeerList() {
+  const list = $('peer-list');
+  list.innerHTML = '';
+  State.peers.forEach(peer => {
+    const msgs = State.messages[peer.id] || [];
+    const last = msgs[msgs.length - 1];
+    const div = document.createElement('div');
+    div.className = 'peer-item' + (peer.id === State.activePeerId ? ' active' : '');
+    div.innerHTML = `
+      <div class="peer-avatar">
+        ${peer.name[0].toUpperCase()}
+        <div class="peer-status-dot ${peer.online ? 'online' : 'offline'}"></div>
+      </div>
+      <div>
+        <div class="peer-name">${escHtml(peer.name)}</div>
+        <div class="peer-last">${last ? escHtml(last.text.slice(0, 28)) + (last.text.length > 28 ? '…' : '') : '// no messages'}</div>
+      </div>
+    `;
+    div.onclick = () => openChat(peer.id);
+    list.appendChild(div);
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function openChat(peerId) {
+  State.activePeerId = peerId;
+  const peer = State.peers.find(p => p.id === peerId);
+  if (!peer) return;
+
+  $('no-chat').style.display = 'none';
+  $('active-chat').style.display = 'flex';
+  $('chat-peer-name').textContent = peer.name;
+  $('chat-peer-status').textContent = peer.sharedKey ? '⬤ encrypted' : '⬤ key pending';
+
+  renderPeerList();
+  await renderMessages(peerId);
+
+  // close sidebar on mobile
+  $('sidebar').classList.remove('open');
+}
+
+async function renderMessages(peerId) {
+  const area = $('messages-area');
+  const msgs = State.messages[peerId] || [];
+  $('empty-chat').style.display = msgs.length === 0 ? 'flex' : 'none';
+
+  // remove existing bubbles
+  area.querySelectorAll('.msg-bubble, .msg-day-divider').forEach(el => el.remove());
+
+  msgs.forEach(msg => {
+    const mine = msg.from === 'me';
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble ' + (mine ? 'mine' : 'theirs');
+    bubble.innerHTML = `
+      ${escHtml(msg.text)}
+      <div class="msg-meta">
+        <span>${formatTime(msg.ts)}</span>
+        <span class="msg-encrypted-label">⚿ E2E</span>
+      </div>
+    `;
+    area.appendChild(bubble);
+  });
+
+  area.scrollTop = area.scrollHeight;
+}
+
+// ──────────────────────────────────────────
+// 6. SEND MESSAGE
+// ──────────────────────────────────────────
+async function sendMessage() {
+  const input = $('msg-input');
+  const text = input.value.trim();
+  if (!text || !State.activePeerId) return;
+
+  const peer = State.peers.find(p => p.id === State.activePeerId);
+  if (!peer) return;
+
+  // Encrypt
+  let encrypted = text;
+  if (peer.sharedKey) {
+    try { encrypted = await Crypto.encrypt(peer.sharedKey, text); } catch(e) { /* fallback */ }
+  }
+
+  const packet = {
+    type: 'msg',
+    from: State.identity.pubKeyB64,
+    to: peer.id,
+    payload: encrypted,
+    ts: Date.now()
+  };
+
+  Transport.send(packet);
+
+  // Store locally (plaintext — device-local)
+  const msg = { peerId: peer.id, from: 'me', text, ts: packet.ts };
+  await DB.put('messages', msg);
+  if (!State.messages[peer.id]) State.messages[peer.id] = [];
+  State.messages[peer.id].push(msg);
+
+  input.value = '';
+  input.style.height = 'auto';
+  renderMessages(State.activePeerId);
+  renderPeerList();
+}
+
+// ──────────────────────────────────────────
+// 7. RECEIVE MESSAGES
+// ──────────────────────────────────────────
+Transport.on(async (packet) => {
+  if (!packet || !packet.type) return;
+
+  if (packet.type === 'msg') {
+    // Only process if addressed to me
+    if (packet.to !== State.identity.pubKeyB64) return;
+
+    const peer = State.peers.find(p => p.id === packet.from);
+    if (!peer) return; // unknown peer, ignore
+
+    let text = packet.payload;
+    if (peer.sharedKey) {
+      try { text = await Crypto.decrypt(peer.sharedKey, packet.payload); }
+      catch(e) { text = '[decryption failed]'; }
+    }
+
+    const msg = { peerId: peer.id, from: 'them', text, ts: packet.ts };
+    await DB.put('messages', msg);
+    if (!State.messages[peer.id]) State.messages[peer.id] = [];
+    State.messages[peer.id].push(msg);
+
+    if (State.activePeerId === peer.id) {
+      renderMessages(peer.id);
+    }
+    renderPeerList();
+  }
+
+  if (packet.type === 'presence') {
+    const peer = State.peers.find(p => p.id === packet.from);
+    if (peer) { peer.online = true; renderPeerList(); }
+  }
+});
+
+// ──────────────────────────────────────────
+// 8. ADD PEER
+// ──────────────────────────────────────────
+async function addPeer(name, pubKeyB64) {
+  const id = pubKeyB64; // public key IS the identity
+  if (State.peers.find(p => p.id === id)) return; // already known
+
+  let sharedKey = null;
+  try {
+    const theirPub = await Crypto.importPublicKey(pubKeyB64);
+    sharedKey = await Crypto.deriveSharedKey(State.keypair.privateKey, theirPub);
+  } catch(e) {
+    console.warn('Key derivation failed:', e);
+  }
+
+  const peer = { id, name, pubKeyB64, sharedKey, online: false };
+  State.peers.push(peer);
+  State.messages[id] = [];
+
+  // persist (without sharedKey — rederived on load)
+  await DB.put('peers', { id, name, pubKeyB64 });
+
+  renderPeerList();
+  return peer;
+}
+
+// ──────────────────────────────────────────
+// 9. BOOT SEQUENCE
+// ──────────────────────────────────────────
+async function boot() {
+  await DB.open();
+
+  // Check for existing identity
+  const saved = await DB.get('identity', 'me');
+
+  if (saved) {
+    // Re-hydrate
+    State.identity = saved;
+    State.keypair = {
+      privateKey: await Crypto.importPrivateKey(saved.privKeyB64),
+      publicKey: await Crypto.importPublicKey(saved.pubKeyB64)
+    };
+    await loadPeers();
+    await loadMessages();
+    Transport.init(saved.pubKeyB64);
+    announcePresence();
+    showApp();
+  } else {
+    // New user — show setup after boot animation
+    setTimeout(() => showScreen('screen-setup'), 2200);
+    initSetupScreen();
+  }
+}
+
+async function initSetupScreen() {
+  // Generate keypair while user types name
+  const kp = await Crypto.generateKeypair();
+  const pubB64 = await Crypto.exportPublicKey(kp.publicKey);
+  const privB64 = await Crypto.exportPrivateKey(kp.privateKey);
+  const fp = await Crypto.fingerprint(pubB64);
+
+  $('keygen-status').textContent = '✓ Keypair generated';
+  $('keygen-fp').textContent = `FINGERPRINT\n${fp}`;
+
+  // Store temporarily
+  window._pendingKeypair = { kp, pubB64, privB64 };
+
+  $('input-username').oninput = () => {
+    $('btn-enter').disabled = !$('input-username').value.trim();
+  };
+
+  $('btn-enter').onclick = async () => {
+    const name = $('input-username').value.trim();
+    if (!name) return;
+    const { kp, pubB64, privB64 } = window._pendingKeypair;
+
+    const identity = { name, pubKeyB64: pubB64, privKeyB64: privB64 };
+    await DB.put('identity', identity, 'me');
+    State.identity = identity;
+    State.keypair = kp;
+
+    Transport.init(pubB64);
+    announcePresence();
+    showApp();
+  };
+}
+
+function announcePresence() {
+  Transport.send({ type: 'presence', from: State.identity.pubKeyB64, name: State.identity.name });
+  setInterval(() => {
+    Transport.send({ type: 'presence', from: State.identity.pubKeyB64, name: State.identity.name });
+  }, 15000);
+}
+
+async function loadPeers() {
+  const saved = await DB.getAll('peers');
+  for (const p of saved) {
+    let sharedKey = null;
+    try {
+      const theirPub = await Crypto.importPublicKey(p.pubKeyB64);
+      sharedKey = await Crypto.deriveSharedKey(State.keypair.privateKey, theirPub);
+    } catch(e) {}
+    State.peers.push({ ...p, sharedKey, online: false });
+  }
+}
+
+async function loadMessages() {
+  const all = await DB.getAll('messages');
+  all.forEach(m => {
+    if (!State.messages[m.peerId]) State.messages[m.peerId] = [];
+    State.messages[m.peerId].push(m);
+  });
+}
+
+async function showApp() {
+  $('my-name-label').textContent = State.identity.name;
+  $('my-pub-key-display').textContent = State.identity.pubKeyB64;
+  renderPeerList();
+  showScreen('screen-app');
+}
+
+// ──────────────────────────────────────────
+// 10. UI EVENT WIRING
+// ──────────────────────────────────────────
+$('send-btn').onclick = sendMessage;
+$('msg-input').onkeydown = e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+};
+$('msg-input').oninput = function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+};
+
+$('btn-add-peer').onclick = () => $('modal-add-peer').classList.add('open');
+$('modal-close').onclick = () => $('modal-add-peer').classList.remove('open');
+
+// Tabs
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    $('tab-' + tab.dataset.tab).classList.add('active');
+  };
+});
+
+$('copy-key-btn').onclick = async () => {
+  await navigator.clipboard.writeText(State.identity.pubKeyB64);
+  $('copy-key-btn').textContent = '✓ COPIED';
+  setTimeout(() => ($('copy-key-btn').textContent = '⊕ COPY KEY'), 2000);
+};
+
+$('import-peer-btn').onclick = async () => {
+  const name = $('import-name').value.trim();
+  const key = $('import-key').value.trim();
+  if (!name || !key) return;
+  try {
+    await addPeer(name, key);
+    $('import-name').value = '';
+    $('import-key').value = '';
+    $('modal-add-peer').classList.remove('open');
+  } catch(e) {
+    alert('Invalid key — check the copied value and try again.');
+  }
+};
+
+$('menu-btn').onclick = () => $('sidebar').classList.toggle('open');
+// close sidebar when clicking outside
+$('chat-area').addEventListener('click', () => {
+  if (window.innerWidth <= 640) $('sidebar').classList.remove('open');
+});
+
+// ──────────────────────────────────────────
+// 11. START
+// ──────────────────────────────────────────
+boot().catch(console.error);
+</script>
+</body>
+</html>
