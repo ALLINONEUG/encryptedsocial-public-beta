@@ -8,6 +8,8 @@ first of all this project is about encrypting messages without loosing or savin 
 
 hosting on a server is coming soon
 
-if u want to support this project leave a little tip on my gofundme and follow me on instagram: socialendtoend 
+if u want to support this project leave a little tip on my gofundme https://gofund.me/b4f5df870
+and follow me on instagram: socialendtoend 
 
 be ready for the real beta and the full release
+giving updates very soon
